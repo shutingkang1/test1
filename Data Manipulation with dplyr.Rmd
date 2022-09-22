@@ -5,26 +5,158 @@ date: "2022-09-22"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup}
+library(tidyverse)
+## just print the first three rows
+options(tibble.print_min = 3)
+
+litters_data = read_csv("./data/FAS_litters.csv",
+  col_types = "ccddiiii")
+## "::" means that we just need this function from package
+litters_data = janitor::clean_names(litters_data)
+
+pups_data = read_csv("./data/FAS_pups.csv",
+  col_types = "ciiiii")
+pups_data = janitor::clean_names(pups_data)
+
 ```
 
-## R Markdown
+### 'Select'
+get smaller dataset, only select column
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+## select specific columns that we need, separate with ','
+select(litters_data, group, litter_number, gd0_weight, pups_born_alive)
+```
+```{r}
+## select the specify range of columns, use the ':'
+select(litters_data, group:gd_of_birth)
+```
+```{r}
+## remove the specific columns , remove the specific column with '-'
+select(litters_data, -pups_survive)
+## drop more than one variables
+select(litters_data, -pups_survive,-group)
+```
+```{r}
+## rename variables, with '='
+select(litters_data, GROUP = group, LiTtEr_NuMbEr = litter_number)
+```
+```{r}
+## another way to rename the colun instead of "select" function
+rename(litters_data, GROUP = group, LiTtEr_NuMbEr = litter_number)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
+```{r}
+## select specific columns, starts_with(), ends_with(),contains()
+select(litters_data, starts_with("gd"),ends_with("weight"))
+```
+```{r}
+## everything function could reorganizing columns without discard anything
+select(litters_data, litter_number, pups_survive, everything())
+```
+```{r}
+## relocation function is similar as everything() function
+relocate(litters_data, litter_number,pups_survive)
+```
+```{r}
+## Learning Assessment: In the pups data, select the columns containing litter number, sex, and PD ears
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+## select(pups_data,contains("litter_number"),contains("sex"),contains("pd_ears"))
+select(pups_data, litter_number, sex, pd_ears)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Filter 
+```{r}
+drop_na(litters_data,gd0_weight)
+## drop the rows for which gd0_weight is missing
+```
+
+```{r}
+## learning assessment 
+## Filter to include only pups with sex 1
+## Filter to include only pups with PD walk less than 11 and sex 2
+filter(pups_data,sex==1)
+filter(pups_data,pd_walk <11 & sex==2)
+```
+
+## Mutate
+sometimes, you need to change specific columns or create new one. 
+```{r}
+mutate(litters_data,
+  wt_gain = gd18_weight - gd0_weight,
+  group = str_to_lower(group)
+)
+```
+
+```{r}
+##Learning Assessment: In the pups data:
+## 1. Create a variable that subtracts 7 from PD pivot
+## Create a variable that is the sum of all the PD variables
+
+mutate(pups_data,
+       new_pd_pivot = pd_pivot-7,
+       sum_pd_variables =pd_ears+pd_eyes+pd_pivot+pd_walk)
+```
+## arrange 
+arrange the rows in data according to the values in one or more columns
+```{r}
+head(arrange(litters_data, group, pups_born_alive), 10)
+```
+## %>%
+several commands for data manipulation and cleaning 
+```{r}
+## load the data
+## clean the column names
+## remove the pups_survive
+## create wt_gain
+
+litters_data = 
+  read_csv("./data/FAS_litters.csv", col_types = "ccddiiii") %>%
+  janitor::clean_names() %>%
+  select(-pups_survive) %>%
+  mutate(
+    wt_gain = gd18_weight - gd0_weight,
+    group = str_to_lower(group)) %>% 
+  drop_na(wt_gain)
+View(litters_data)
+```
+## Better way for pipe operator.
+pipe will take the result of one function call and use that as the first argument of the function calls.
+As a consequence, functions in dplyr are easy to connect in a data cleaning chain. You can make this more explicit by using . as a placeholder for the result of the preceding call:
+```{r}
+litters_data = 
+  read_csv("./data/FAS_litters.csv", col_types = "ccddiiii") %>%
+  janitor::clean_names(dat = .) %>%
+  select(.data = ., -pups_survive) %>%
+  mutate(.data = .,
+    wt_gain = gd18_weight - gd0_weight,
+    group = str_to_lower(group)) %>% 
+  drop_na(data = ., wt_gain)
+```
+
+```{r}
+litters_data %>%
+  lm(wt_gain ~ pups_born_alive, data = .) %>%
+  broom::tidy()
+
+```
+There are limitations to the pipe. You shouldn’t have sequences that are too long; there isn’t a great way to deal with multiple inputs and outputs; and (since it’s not base R) not everyone will know what %>% means or does. That said, compared to days when R users only had the first two options, life is much better!
+loads the pups data
+cleans the variable names
+filters the data to include only pups with sex 1
+removes the PD ears variable
+creates a variable that indicates whether PD pivot is 7 or more days
+```{r}
+## Learning assessment 
+
+pups_data=
+  read_csv("./data/FAS_pups.csv", col_types = "ccddiiii") %>%
+  janitor::clean_names(dat = .) %>%
+  filter(sex == 1) %>% 
+  select(-pd_ears) %>% 
+  mutate(pd_pivot_more_than7=pd_pivot>7)
+show(pups_data)
+  
+```
